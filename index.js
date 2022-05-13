@@ -2,15 +2,20 @@
 var logged_in = false;
 var current_user_name = "";
 
-// To connect with your mongoDB database
-const mongoose = require('mongoose');
-mongoose.connect('mongodb+srv://diplomUser:gt6vdUn13fDGqf79@cluster0.9icuq.mongodb.net/myFirstDatabase?retryWrites=true&w=majority', {
-    dbName: 'Cluster0',
+// * Подключение к базе данных MongoDB
+const mongoose = require("mongoose");
+mongoose.connect(
+  "mongodb+srv://diplomUser:gt6vdUn13fDGqf79@cluster0.9icuq.mongodb.net/myFirstDatabase?retryWrites=true&w=majority",
+  {
+    dbName: "Cluster0",
     useNewUrlParser: true,
-    useUnifiedTopology: true
-}, err => err ? console.log(err) : 
-    console.log('Connected to Cluster0 database'));
+    useUnifiedTopology: true,
+  },
+  (err) =>
+    err ? console.log(err) : console.log("Connected to Cluster0 database")
+);
 
+// Коллекция книг
 const BookSchema = new mongoose.Schema({
   name: {
     type: String,
@@ -27,10 +32,11 @@ const BookSchema = new mongoose.Schema({
     unique: false,
   },
 });
+
 const Book = mongoose.model("books", BookSchema);
 Book.createIndexes();
 
-// Schema for users of app
+// Коллекция для данных пользователей
 const UserSchema = new mongoose.Schema({
   name: {
     type: String,
@@ -43,6 +49,7 @@ const UserSchema = new mongoose.Schema({
     unique: false,
   },
 });
+
 const User = mongoose.model("users", UserSchema);
 User.createIndexes();
 
@@ -79,26 +86,29 @@ app.post("/register", async (req, resp) => {
 
 app.post("/login", async (req, resp) => {
   try {
-    const input_user = new User(req.body);
-    User.countDocuments({
-      name: input_user.name,
-      password: input_user.password,
-    }, function(err, e) {
-      if (e === 1) {
-        if (logged_in) {
-          resp.send("login_already");
+    const input_user = new User(req.body); // Создание нового пользователя
+    User.countDocuments(
+      {
+        name: input_user.name,
+        password: input_user.password,
+      },
+      function (err, e) {
+        if (e === 1) {
+          if (logged_in) {
+            resp.send("login_already");
+          } else {
+            // Пользователь залогинился.
+            logged_in = true;
+            current_user_name = input_user.name;
+            resp.send("login_ok");
+          }
+        } else if (e === 0) {
+          resp.send("user_not_exist");
         } else {
-          // Пользователь залогинился.
-          logged_in = true;
-          current_user_name = input_user.name;
-          resp.send("login_ok");
+          resp.send("user_not_unique");
         }
-      } else if (e === 0) {
-        resp.send("user_not_exist");
-      } else {
-        resp.send("user_not_unique");
       }
-    });
+    );
   } catch (e) {
     resp.send("login_error");
   }
@@ -113,7 +123,7 @@ app.post("/profile_data", async (req, resp) => {
     // Тут можно сделать запрос в БД и получить все данные пользователя, например.
     const user = {
       name: current_user_name,
-    }
+    };
     const userJSON = JSON.stringify(user);
     resp.send(userJSON);
   } catch (e) {
@@ -135,6 +145,7 @@ app.post("/unlogin", async (req, resp) => {
   }
 });
 
+// * все самое интересное начинается именно здесь
 app.post("/get_page", async (req, resp) => {
   try {
     // Сброс пользователя если не залогинен.
@@ -142,13 +153,16 @@ app.post("/get_page", async (req, resp) => {
       resp.send("user_not_login");
     }
     // name="книга1"&page=3
-    var book_data = req.body.split("&");
-    var name = book_data[0].split("=")[1];
-    var page = book_data[1].split("=")[1];
+    console.log(req.body);
+    // var book_data = req.body.split("&");
+
+    var name = req.body["name"];
+    var page = req.body["pageNumber"];
 
     var tech_name = "";
     var page_count = 0;
 
+    // Фильтр по книгам
     Book.find()
       .where("name")
       .equals(name)
@@ -156,32 +170,36 @@ app.post("/get_page", async (req, resp) => {
       .select("tech_name page_count")
       .exec(function (err, books) {
         if (err) return handleError(err);
+        console.log("books[0].tech_name: " + books[0].tech_name);
         tech_name = books[0].tech_name; // ["tech_name"]
         page_count = books[0].page_count; // ["page_count"]
-      });
+        if (tech_name !== "") {
+          if (page > page_count) {
+            console.log("hello");
+            resp.send("page_out");
+            return;
+          }
 
-    if (tech_name !== "") {
-      if (page > page_count) {
-        resp.send("page_out");
-        return;
-      }
+          var fs = require("fs");
+          var path = process.cwd();
+          var buffer = fs.readFileSync(
+            "./books/" + tech_name + "/page_" + page + ".txt"
+          );
 
-      const reader = new FileReader();
-      reader.onload = async (e) => {
-        const text = e.target.result;
-        // Отправили текст страницы на фронт
-        const page = {
-          page: text,
+          const text = buffer.toString();
+          // Отправили текст страницы на фронт
+          const pageJSONStruct = {
+            page: text,
+            max_page_count: page_count,
+          };
+          const pageJSON = JSON.stringify(pageJSONStruct);
+          resp.send(pageJSON);
+        } else {
+          resp.send("page_error");
         }
-        const pageJSON = JSON.stringify(page);
-        resp.send(pageJSON);
-      };
-      reader.readAsText("/books/" + tech_name + "/page_" + page + ".txt");
-    } else {
-      resp.send("page_error");
-    }
+      });
   } catch (e) {
-    resp.send("Something Went Wrong");
+    resp.send("Something Went Wrong: " + e);
   }
 });
 
