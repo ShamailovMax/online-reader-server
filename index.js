@@ -31,6 +31,16 @@ const BookSchema = new mongoose.Schema({
     required: true,
     unique: false,
   },
+  category: {
+    type: String,
+    required: true,
+    unique: false,
+  },
+  // description: {
+  //   type: String,
+  //   required: true,
+  //   unique: true,
+  // },
 });
 
 const Book = mongoose.model("books", BookSchema);
@@ -183,7 +193,8 @@ app.post("/get_page", async (req, resp) => {
           var fs = require("fs");
           var path = process.cwd();
           var buffer = fs.readFileSync(
-            "./books/" + tech_name + "/page_" + page + ".txt"
+            "./books/" + tech_name + "/page_" + page + ".txt",
+            "utf-8"
           );
 
           const text = buffer.toString();
@@ -216,4 +227,11 @@ app.post("/get_book", async (req, resp) => {
     resp.send("Something Went Wrong");
   }
 });
+
+// запрос на получение категорий
+app.get("/book/", async (req, resp) => {
+  console.log(req.query);
+  const selectedCategory = req.query.category;
+});
+
 app.listen(5000);
