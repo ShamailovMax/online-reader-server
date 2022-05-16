@@ -234,4 +234,16 @@ app.get("/book/", async (req, resp) => {
   const selectedCategory = req.query.category;
 });
 
+//! тестовый запрос на добавление ("покупку") книги в профиль
+// это пока только каркас, но возможно в будущем получится заставить его функционировать
+app.post("/add-to-profile", async (req, resp) => {
+  try {
+    let { name, password } = req.body;
+    !name || (!password && resp.send({ status: "Введите данные корректно" }));
+    const user = await User.findOne({ name, password });
+  } catch (e) {
+    console.log(e);
+  }
+});
+
 app.listen(5000);
